@@ -5,35 +5,40 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    rust-overlay,
-    flake-utils,
-    ...
-  }:
+  outputs =
+    {
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
-      system: let
-        overlays = [(import rust-overlay)];
+      system:
+      let
+        overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+        buildInputs = with pkgs; [
+          rustup
+          (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+          udev
+          alsa-lib
+          vulkan-loader
+          libxkbcommon
+          wayland
+        ];
       in
-        with pkgs; {
-          devShells.default = mkShell {
-            buildInputs = [
-              rustup
-              (
-                rust-bin.fromRustupToolchainFile ./rust-toolchain.toml
-              )
-            ];
-            # packages = [
-            #   (writeShellScriptBin "bla" ''
-            #   '')
-            # ];
-            # shellHook = ''
-            # '';
-          };
-        }
+      with pkgs;
+      {
+        formatter = nixpkgs.legacyPackages.${system}.nixfmt-rfc-style;
+        devShells.default = mkShell {
+          nativeBuildInputs = [
+            pkg-config
+          ];
+          inherit buildInputs;
+          LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
+        };
+      }
     );
 }
