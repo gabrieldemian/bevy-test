@@ -1,3 +1,5 @@
+edition = "2024"
+
 max_width = 80
 comment_width = 80
 
@@ -6,6 +8,10 @@ format_macro_matchers = true
 format_macro_bodies = true
 format_strings = true
 
+blank_lines_upper_bound = 1
+enum_discrim_align_threshold = 30
+fn_params_layout = "Vertical"
+fn_call_width = 50
+
 imports_granularity = "Crate"
 wrap_comments = true
-use_small_heuristics = "Max"

@@ -1,45 +1,35 @@
 use bevy::prelude::*;
 
-#[derive(Component)]
-struct Person;
-
-#[derive(Component)]
-struct Name(String);
-
-#[derive(Resource)]
-struct GreetTimer(Timer);
-
-fn add_people(mut commands: Commands) {
-    commands.spawn((Person, Name("Gabriel".to_string())));
-    commands.spawn((Person, Name("Vicente".to_string())));
-}
-
-fn update_name(mut query: Query<&mut Name, With<Person>>) {
-    for mut name in &mut query {
-        name.0.push_str(" Lombardo");
-    }
-}
-
-fn hello_person(
-    time: Res<Time>,
-    mut timer: ResMut<GreetTimer>,
-    query: Query<&Name, With<Person>>,
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
-        for q in &query {
-            println!("hello {}", q.0);
-        }
-    }
+    commands.spawn(Camera2d);
+
+    let color = Color::srgb(50.0, 30.0, 200.0);
+    let shape = meshes.add(Circle::new(90.0));
+
+    commands.spawn((
+        Mesh2d(shape),
+        MeshMaterial2d(materials.add(color)),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
+
+    commands.spawn((
+        Text::new("Press space to toggle wireframes"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(GreetTimer(Timer::from_seconds(
-            2.0,
-            TimerMode::Repeating,
-        )))
-        .add_systems(Startup, (add_people, update_name).chain())
-        .add_systems(Update, hello_person)
+        .add_systems(Startup, setup)
         .run();
 }
