@@ -31,4 +31,4 @@ opt-level = "s"
 strip = "debuginfo"
 
 [dependencies]
-bevy = "0.15.0"
+bevy = { version = "0.15.0", features = ["wayland"] }
