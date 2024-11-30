@@ -20,13 +20,19 @@
           inherit system overlays;
         };
         buildInputs = with pkgs; [
-          rustup
           (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
-          udev
-          alsa-lib
-          vulkan-loader
+          xorg.libX11
+          xorg.libXcursor
+          xorg.libXi
+          xorg.libxcb
           libxkbcommon
-          wayland
+          alsa-lib
+          libudev-zero
+          openssl
+          llvm
+          pkg-config
+          gcc
+          sqlite
         ];
       in
       with pkgs;
@@ -36,8 +42,19 @@
           nativeBuildInputs = [
             pkg-config
           ];
-          inherit buildInputs;
-          LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
+          # inherit buildInputs;
+          buildInputs = buildInputs ++ [ pkgs.valgrind ];
+          LD_LIBRARY_PATH = "$LD_LIBRARY_PATH:${
+            pkgs.lib.makeLibraryPath [
+              xorg.libX11
+              xorg.libXcursor
+              xorg.libXi
+              libxkbcommon
+              xorg.libxcb
+              pkgs.vulkan-loader
+              pkgs.glfw
+            ]
+          }";
         };
       }
     );
