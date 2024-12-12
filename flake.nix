@@ -20,6 +20,7 @@
           inherit system overlays;
         };
         buildInputs = with pkgs; [
+          rustup
           (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
           vulkan-loader
           udev
