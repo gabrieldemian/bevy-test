@@ -1,4 +1,6 @@
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{
+    input::mouse::MouseMotion, pbr::CascadeShadowConfigBuilder, prelude::*,
+};
 use std::f32::consts::PI;
 
 use super::app_state::AppState;
@@ -73,9 +75,9 @@ fn startup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         // make camera look at the center
-        // Transform::from_xyz(0.0, 0.0, 30.0),
-        Transform::from_xyz(3.0, 7., 7.0)
-            .looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
+        Transform::from_xyz(0.0, 0.0, 12.0),
+        // Transform::from_xyz(3.0, 7., 7.0)
+        //     .looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
         MyCamera,
     ));
 
@@ -104,16 +106,36 @@ fn startup(mut commands: Commands) {
     ));
 }
 
+fn mouse_motion(
+    mut camera: Query<&mut Transform, With<MyCamera>>,
+    mut evr_motion: EventReader<MouseMotion>,
+    time: Res<Time>,
+) {
+    let mut t = camera.single_mut();
+
+    for ev in evr_motion.read() {
+        info!("X: {} px, Y: {} px", ev.delta.x, ev.delta.y);
+
+        let mut end = t.rotation;
+        end.y -= ev.delta.x;
+        end.x -= ev.delta.y;
+
+        t.rotation = t.rotation.lerp(end, time.delta_secs() * 0.1);
+    }
+}
+
 impl Plugin for CameraPlugin {
     fn build(
         &self,
         app: &mut App,
     ) {
-        app.add_systems(Update, move_camera);
         app.add_systems(Startup, startup);
         app.add_systems(
             Update,
-            move_camera.run_if(in_state(AppState::InGame)),
+            (
+                mouse_motion,
+                move_camera.run_if(in_state(AppState::InGame)),
+            ),
         );
     }
 }

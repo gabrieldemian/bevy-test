@@ -1,14 +1,9 @@
 use bevy::{
     asset::RenderAssetUsages,
-    pbr::{MaterialPipeline, MaterialPipelineKey},
+    input::common_conditions::input_just_pressed,
     prelude::*,
-    render::{
-        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
-        render_resource::{
-            PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
-    },
+    render::mesh::PrimitiveTopology,
+    window::{CursorGrabMode, PrimaryWindow},
 };
 
 pub struct GridPlugin;
@@ -84,7 +79,6 @@ impl From<LineStrip> for Mesh {
 // }
 
 fn render_grid(
-    keyboard: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -106,39 +100,37 @@ fn render_grid(
     //     Grid,
     // ));
 
-    if keyboard.just_pressed(KeyCode::Tab) {
-        if let Some(grid_res) = grid_res {
-            commands.entity(grid_res.0).despawn();
-            commands.remove_resource::<GridResource>();
-        } else {
-            let id = commands
-                .spawn((
-                    Mesh3d(meshes.add(LineList {
-                        lines: vec![
-                            (
-                                Vec3::new(-100.0, 0.0, 0.0),
-                                Vec3::new(100.0, 0.0, 0.0),
-                            ),
-                            (
-                                Vec3::new(-100.0, 0.0, 1.0),
-                                Vec3::new(100.0, 0.0, 1.0),
-                            ),
-                            (
-                                Vec3::new(-100.0, 0.0, 2.0),
-                                Vec3::new(100.0, 0.0, 2.0),
-                            ),
-                        ],
-                    })),
-                    MeshMaterial3d(materials.add(StandardMaterial {
-                        base_color: Color::linear_rgb(200.0, 0.0, 0.0),
-                        ..Default::default()
-                    })),
-                    Transform::default(),
-                    Grid,
-                ))
-                .id();
-            commands.insert_resource(GridResource(id));
-        }
+    if let Some(grid_res) = grid_res {
+        commands.entity(grid_res.0).despawn();
+        commands.remove_resource::<GridResource>();
+    } else {
+        let id = commands
+            .spawn((
+                Mesh3d(meshes.add(LineList {
+                    lines: vec![
+                        (
+                            Vec3::new(-100.0, 0.0, 0.0),
+                            Vec3::new(100.0, 0.0, 0.0),
+                        ),
+                        (
+                            Vec3::new(-100.0, 0.0, 1.0),
+                            Vec3::new(100.0, 0.0, 1.0),
+                        ),
+                        (
+                            Vec3::new(-100.0, 0.0, 2.0),
+                            Vec3::new(100.0, 0.0, 2.0),
+                        ),
+                    ],
+                })),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::linear_rgb(200.0, 0.0, 0.0),
+                    ..Default::default()
+                })),
+                Transform::default(),
+                Grid,
+            ))
+            .id();
+        commands.insert_resource(GridResource(id));
     }
 
     // commands.spawn((
@@ -165,14 +157,22 @@ fn render_grid(
     // }
 }
 
-fn startup(mut _commands: Commands) {}
+fn startup(
+    mut _commands: Commands,
+    mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let mut window = q_windows.single_mut();
+    window.cursor_options.grab_mode = CursorGrabMode::Locked;
+}
 
 impl Plugin for GridPlugin {
     fn build(
         &self,
         app: &mut App,
     ) {
-        app.add_systems(Startup, startup)
-            .add_systems(Update, render_grid);
+        app.add_systems(Startup, startup).add_systems(
+            Update,
+            (render_grid.run_if(input_just_pressed(KeyCode::Tab)),),
+        );
     }
 }
