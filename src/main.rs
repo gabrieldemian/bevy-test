@@ -45,18 +45,6 @@ fn setup(
         left: Val::Px(12.0),
         ..default()
     }));
-
-    // light
-    commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
-            ..default()
-        },
-        Transform::from_xyz(8.0, 16.0, 8.0),
-    ));
 }
 
 fn main() {
@@ -65,13 +53,14 @@ fn main() {
             DefaultPlugins,
             bevy_test::plugins::CameraPlugin,
             AppStatePlugin,
+            GridPlugin,
         ))
         .add_systems(Startup, setup)
         .run();
 }
 
 /// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
+pub fn uv_debug_texture() -> Image {
     const TEXTURE_SIZE: usize = 8;
 
     let mut palette: [u8; 32] = [
@@ -81,6 +70,7 @@ fn uv_debug_texture() -> Image {
     ];
 
     let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
+
     for y in 0..TEXTURE_SIZE {
         let offset = TEXTURE_SIZE * y * 4;
         texture_data[offset..(offset + TEXTURE_SIZE * 4)]

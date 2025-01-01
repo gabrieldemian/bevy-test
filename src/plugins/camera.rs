@@ -1,4 +1,5 @@
-use bevy::prelude::*;
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use std::f32::consts::PI;
 
 use super::app_state::AppState;
 
@@ -14,45 +15,57 @@ fn move_camera(
 ) {
     let mut transform = q.single_mut();
 
-    // rotation
+    let rt = std::f32::consts::FRAC_PI_8 / 5.0;
+    let mv = 0.2;
+
+    // rotate left
     if keyboard.just_pressed(KeyCode::KeyZ) {
-        transform.rotate_y(-std::f32::consts::FRAC_PI_2 / 25.0);
+        transform.rotate_y(rt);
     }
+
+    // rotate right
     if keyboard.just_pressed(KeyCode::KeyX) {
-        transform.rotate_y(std::f32::consts::FRAC_PI_2 / 25.0);
+        transform.rotate_y(-rt);
     }
+
+    // rotate up
     if keyboard.just_pressed(KeyCode::KeyQ) {
-        transform.rotate_x(std::f32::consts::FRAC_PI_2 / 25.0);
+        transform.rotate_x(rt);
     }
+
+    // rotate down
     if keyboard.just_pressed(KeyCode::KeyE) {
-        transform.rotate_x(-std::f32::consts::FRAC_PI_2 / 25.0);
+        transform.rotate_x(-rt);
     }
 
-    // up Y
+    // move up
     if keyboard.just_pressed(KeyCode::Space) {
-        transform.translation.y += 1.0 + time.delta_secs();
+        transform.translation.y += mv + time.delta_secs();
     }
 
-    // down Y
+    // move down
     if keyboard.just_pressed(KeyCode::KeyC) {
-        transform.translation.y -= 1.0 + time.delta_secs();
+        transform.translation.y -= mv + time.delta_secs();
     }
 
-    // translation
+    // move forwards
     if keyboard.just_pressed(KeyCode::KeyW) {
-        transform.translation.z -= 1.0 + time.delta_secs();
+        transform.translation.z -= mv + time.delta_secs();
     }
 
+    // move left
     if keyboard.just_pressed(KeyCode::KeyS) {
-        transform.translation.z += 1.0 + time.delta_secs();
+        transform.translation.z += mv + time.delta_secs();
     }
 
+    // move right
     if keyboard.just_pressed(KeyCode::KeyA) {
-        transform.translation.x -= 1.0 + time.delta_secs();
+        transform.translation.x -= mv + time.delta_secs();
     }
 
+    // move backwards
     if keyboard.just_pressed(KeyCode::KeyD) {
-        transform.translation.x += 1.0 + time.delta_secs();
+        transform.translation.x += mv + time.delta_secs();
     }
 }
 
@@ -60,8 +73,34 @@ fn startup(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         // make camera look at the center
-        Transform::from_xyz(0.0, 0.0, 5.0),
+        // Transform::from_xyz(0.0, 0.0, 30.0),
+        Transform::from_xyz(3.0, 7., 7.0)
+            .looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
         MyCamera,
+    ));
+
+    // light
+    // directional 'sun' light
+    commands.spawn((
+        DirectionalLight {
+            illuminance: light_consts::lux::OVERCAST_DAY,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform {
+            translation: Vec3::new(0.0, 2.0, 0.0),
+            rotation: Quat::from_rotation_x(-PI / 4.),
+            ..default()
+        },
+        // The default cascade config is designed to handle large scenes.
+        // As this example has a much smaller world, we can tighten the shadow
+        // bounds for better visual quality.
+        CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 4.0,
+            maximum_distance: 10.0,
+            ..default()
+        }
+        .build(),
     ));
 }
 
