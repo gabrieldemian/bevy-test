@@ -1,4 +1,4 @@
-use bevy_test::plugins::*;
+use bevy_test::{BodyKinematics, plugins::*};
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -31,6 +31,10 @@ fn setup(
         //     ..Default::default()
         // })),
         Transform::default(),
+        BodyKinematics {
+            speed: 10.0,
+            start_pos: Transform::default().translation,
+        },
         Shape,
         // Transform::from_rotation(Quat::from_rotation_x(
         //     -std::f32::consts::FRAC_PI_2,

@@ -1,83 +1,118 @@
 use bevy::{
-    input::mouse::MouseMotion, pbr::CascadeShadowConfigBuilder, prelude::*,
+    input::mouse::{AccumulatedMouseMotion, MouseMotion},
+    pbr::CascadeShadowConfigBuilder,
+    prelude::*,
 };
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_PI_2, PI};
+
+use crate::BodyKinematics;
 
 use super::app_state::AppState;
 
 #[derive(Component)]
 pub struct MyCamera;
 
-pub struct CameraPlugin;
+#[derive(Debug, Component, Deref, DerefMut)]
+struct CameraSensitivity(Vec2);
 
-fn move_camera(
-    mut q: Query<&mut Transform, With<MyCamera>>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-) {
-    let mut transform = q.single_mut();
-
-    let rt = std::f32::consts::FRAC_PI_8 / 5.0;
-    let mv = 0.2;
-
-    // rotate left
-    if keyboard.just_pressed(KeyCode::KeyZ) {
-        transform.rotate_y(rt);
-    }
-
-    // rotate right
-    if keyboard.just_pressed(KeyCode::KeyX) {
-        transform.rotate_y(-rt);
-    }
-
-    // rotate up
-    if keyboard.just_pressed(KeyCode::KeyQ) {
-        transform.rotate_x(rt);
-    }
-
-    // rotate down
-    if keyboard.just_pressed(KeyCode::KeyE) {
-        transform.rotate_x(-rt);
-    }
-
-    // move up
-    if keyboard.just_pressed(KeyCode::Space) {
-        transform.translation.y += mv + time.delta_secs();
-    }
-
-    // move down
-    if keyboard.just_pressed(KeyCode::KeyC) {
-        transform.translation.y -= mv + time.delta_secs();
-    }
-
-    // move forwards
-    if keyboard.just_pressed(KeyCode::KeyW) {
-        transform.translation.z -= mv + time.delta_secs();
-    }
-
-    // move left
-    if keyboard.just_pressed(KeyCode::KeyS) {
-        transform.translation.z += mv + time.delta_secs();
-    }
-
-    // move right
-    if keyboard.just_pressed(KeyCode::KeyA) {
-        transform.translation.x -= mv + time.delta_secs();
-    }
-
-    // move backwards
-    if keyboard.just_pressed(KeyCode::KeyD) {
-        transform.translation.x += mv + time.delta_secs();
+impl Default for CameraSensitivity {
+    fn default() -> Self {
+        Self(
+            // These factors are just arbitrary mouse sensitivity values.
+            // It's often nicer to have a faster horizontal sensitivity than
+            // vertical. We use a component for them so that we can
+            // make them user-configurable at runtime
+            // for accessibility reasons.
+            // It also allows you to inspect them in an editor if you `Reflect`
+            // the component.
+            Vec2::new(0.003, 0.002),
+        )
     }
 }
 
+pub struct CameraPlugin;
+
+fn move_camera(
+    mut q: Query<(&mut Transform, &BodyKinematics), With<MyCamera>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
+    let (mut transform, body) = q.single_mut();
+
+    // move up
+    if keyboard.pressed(KeyCode::Space) {
+        let dir = transform.up();
+        transform.translation += dir * body.speed * time.delta_secs();
+    }
+
+    // move down
+    if keyboard.pressed(KeyCode::ShiftLeft) {
+        let dir = transform.down();
+        transform.translation += dir * body.speed * time.delta_secs();
+    }
+
+    // move forwards
+    if keyboard.pressed(KeyCode::KeyW) {
+        let dir = transform.forward();
+        transform.translation += dir * body.speed * time.delta_secs();
+    }
+
+    // move backwards
+    if keyboard.pressed(KeyCode::KeyS) {
+        let dir = transform.back();
+        transform.translation += dir * body.speed * time.delta_secs();
+    }
+
+    // move left
+    if keyboard.pressed(KeyCode::KeyA) {
+        let dir = transform.left();
+        transform.translation += dir * body.speed * time.delta_secs();
+    }
+
+    // move right
+    if keyboard.pressed(KeyCode::KeyD) {
+        let dir = transform.right();
+        transform.translation += dir * body.speed * time.delta_secs();
+    }
+}
+
+fn mouse_motion(
+    mut camera: Query<(&mut Transform, &CameraSensitivity), With<MyCamera>>,
+    mouse_motion: Res<AccumulatedMouseMotion>,
+) {
+    let (mut transform, camera_sensitivity) = camera.single_mut();
+    let delta = mouse_motion.delta;
+    if delta == Vec2::ZERO {
+        return;
+    };
+    let delta_yaw = -delta.x * camera_sensitivity.x;
+    let delta_pitch = -delta.y * camera_sensitivity.y;
+
+    let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
+    let yaw = yaw + delta_yaw;
+
+    const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
+    let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
+
+    transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+}
+
 fn startup(mut commands: Commands) {
+    let trans = Transform::from_xyz(0.0, 0.0, 12.0);
+    // let trans = Transform::from_xyz(3.0, 7., 7.0)
+    //     .looking_at(Vec3::new(0., 0., 0.), Vec3::Y);
     commands.spawn((
         Camera3d::default(),
-        // make camera look at the center
-        Transform::from_xyz(0.0, 0.0, 12.0),
-        // Transform::from_xyz(3.0, 7., 7.0)
-        //     .looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
+        Projection::from(PerspectiveProjection {
+            fov: 90.0_f32.to_radians(),
+            ..default()
+        }),
+        trans,
+        CameraSensitivity::default(),
+        BodyKinematics {
+            speed: 10.0,
+            start_pos: trans.translation,
+        },
         MyCamera,
     ));
 
@@ -91,7 +126,7 @@ fn startup(mut commands: Commands) {
         },
         Transform {
             translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-PI / 4.),
+            rotation: Quat::from_rotation_x(-PI / 2.),
             ..default()
         },
         // The default cascade config is designed to handle large scenes.
@@ -106,24 +141,6 @@ fn startup(mut commands: Commands) {
     ));
 }
 
-fn mouse_motion(
-    mut camera: Query<&mut Transform, With<MyCamera>>,
-    mut evr_motion: EventReader<MouseMotion>,
-    time: Res<Time>,
-) {
-    let mut t = camera.single_mut();
-
-    for ev in evr_motion.read() {
-        info!("X: {} px, Y: {} px", ev.delta.x, ev.delta.y);
-
-        let mut end = t.rotation;
-        end.y -= ev.delta.x;
-        end.x -= ev.delta.y;
-
-        t.rotation = t.rotation.lerp(end, time.delta_secs() * 0.1);
-    }
-}
-
 impl Plugin for CameraPlugin {
     fn build(
         &self,
@@ -133,7 +150,9 @@ impl Plugin for CameraPlugin {
         app.add_systems(
             Update,
             (
-                mouse_motion,
+                mouse_motion
+                    .run_if(on_event::<MouseMotion>)
+                    .run_if(in_state(AppState::InGame)),
                 move_camera.run_if(in_state(AppState::InGame)),
             ),
         );
