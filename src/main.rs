@@ -41,7 +41,14 @@ fn setup(
         // )),
     ));
 
-    // let ground_gltf = ass.load("../assets/ground.gltf#Scene0");
+    let ground_gltf = ass.load::<Scene>(
+        GltfAssetLabel::Scene(0).from_asset("models/ground.gltf"),
+    );
+
+    commands.spawn((
+        SceneRoot(ground_gltf),
+        Transform::from_xyz(0., -2., 0.),
+    ));
 
     commands.spawn((Text::new("WASD to move"), Node {
         position_type: PositionType::Absolute,
