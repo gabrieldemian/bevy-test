@@ -114,7 +114,7 @@ fn startup(
     window.set_cursor_position(Some(w_size / 2.));
 
     // let trans = Transform::from_xyz(0.0, 0.0, 3.0);
-    let trans = Transform::from_xyz(3.0, 7., 3.0)
+    let trans = Transform::from_xyz(3.0, 3., 3.0)
         .looking_at(Vec3::new(0., 0., 0.), Vec3::Y);
 
     commands.spawn((

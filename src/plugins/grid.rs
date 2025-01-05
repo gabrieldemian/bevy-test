@@ -1,9 +1,20 @@
 use bevy::{
-    asset::RenderAssetUsages, input::common_conditions::input_just_pressed,
-    prelude::*, render::mesh::PrimitiveTopology,
+    asset::RenderAssetUsages,
+    input::common_conditions::input_just_pressed,
+    pbr::{MaterialPipeline, MaterialPipelineKey},
+    prelude::*,
+    render::{
+        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
+        render_resource::{
+            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
+            SpecializedMeshPipelineError,
+        },
+    },
 };
 
 use super::camera::MyCamera;
+
+const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
 
 pub struct GridPlugin;
 
@@ -31,22 +42,19 @@ impl Default for LineLen {
     }
 }
 
-/// List of lines
-/// where every pair is a start and end point
-/// read as: Vec<(start_point, end_point)>
+/// List of lines vertices
+/// read as: Vec<(start_vertex, end_vertex)>
 /// ----------
 ///
 /// ----------
-#[derive(Debug, Clone)]
-struct LineList {
-    lines: Vec<(Vec3, Vec3)>,
-}
+#[derive(Debug, Clone, Deref)]
+struct LineList(Vec<(Vec3, Vec3)>);
 
 // Necessary trait that tells the renderer how to transform LineList into a Mesh
 impl From<LineList> for Mesh {
     fn from(line: LineList) -> Self {
         let vertices: Vec<_> =
-            line.lines.into_iter().flat_map(|(a, b)| [a, b]).collect();
+            line.0.into_iter().flat_map(|(a, b)| [a, b]).collect();
 
         Mesh::new(
             PrimitiveTopology::LineList,
@@ -57,55 +65,37 @@ impl From<LineList> for Mesh {
     }
 }
 
-/// A list of points that will have a line drawn between each consecutive points
-/// ----------
-/// - -  -  -
-/// ----------
-#[derive(Debug, Clone)]
-struct LineStrip {
-    points: Vec<Vec3>,
+#[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
+struct LineMaterial {
+    #[uniform(0)]
+    color: LinearRgba,
 }
 
-impl From<LineStrip> for Mesh {
-    fn from(line: LineStrip) -> Self {
-        Mesh::new(
-            PrimitiveTopology::LineStrip,
-            RenderAssetUsages::RENDER_WORLD,
-        )
-        // Add the point positions as an attribute
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, line.points)
+impl Material for LineMaterial {
+    fn fragment_shader() -> ShaderRef {
+        SHADER_ASSET_PATH.into()
+    }
+
+    fn specialize(
+        _pipeline: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _layout: &MeshVertexBufferLayoutRef,
+        _key: MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        // This is the important part to tell bevy to render this material as
+        // a line between vertices
+        descriptor.primitive.polygon_mode = PolygonMode::Line;
+        Ok(())
     }
 }
-
-// #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
-// struct LineMaterial {
-//     #[uniform(0)]
-//     color: LinearRgba,
-// }
-//
-// impl Material for LineMaterial {
-//     fn fragment_shader() -> ShaderRef {
-//         SHADER_ASSET_PATH.into()
-//     }
-//
-//     fn specialize(
-//         _pipeline: &MaterialPipeline<Self>,
-//         descriptor: &mut RenderPipelineDescriptor,
-//         _layout: &MeshVertexBufferLayoutRef,
-//         _key: MaterialPipelineKey<Self>,
-//     ) -> Result<(), SpecializedMeshPipelineError> {
-//         // This is the important part to tell bevy to render this material as
-// a         // line between vertices
-//         descriptor.primitive.polygon_mode = PolygonMode::Line;
-//         Ok(())
-//     }
-// }
 
 fn gen_x_lines(
     n: usize,
     len: f32,
 ) -> Vec<(Vec3, Vec3)> {
     let mut v: Vec<(Vec3, Vec3)> = Vec::with_capacity(n * 2);
+
+    // half of the lines will be rendered foward and the other half backwards.
     for i in 0..n / 2 {
         v.push((
             Vec3::new(-len, 0., 1. * i as f32),
@@ -116,6 +106,7 @@ fn gen_x_lines(
             Vec3::new(len, 0., -(1. * i as f32)),
         ));
     }
+
     v
 }
 
@@ -124,6 +115,8 @@ fn gen_y_lines(
     len: f32,
 ) -> Vec<(Vec3, Vec3)> {
     let mut v: Vec<(Vec3, Vec3)> = Vec::with_capacity(n * 2);
+
+    // half of the lines will be rendered foward and the other half backwards.
     for i in 0..n / 2 {
         v.push((
             Vec3::new(0., -len, 1. * i as f32),
@@ -134,6 +127,7 @@ fn gen_y_lines(
             Vec3::new(0., len, -(1. * i as f32)),
         ));
     }
+
     v
 }
 
@@ -146,7 +140,7 @@ fn is_grid_on(state: Res<State<GridState>>) -> bool {
 fn listen_trigger(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<LineMaterial>>,
     mut state_mut: ResMut<NextState<GridState>>,
     state: Res<State<GridState>>,
     line_len: Res<LineLen>,
@@ -160,12 +154,13 @@ fn listen_trigger(
         _ => {
             let x_id = commands
                 .spawn((
-                    Mesh3d(meshes.add(LineList {
-                        lines: gen_x_lines(20, line_len.0),
-                    })),
-                    MeshMaterial3d(materials.add(StandardMaterial {
-                        base_color: Color::linear_rgb(200., 0., 0.),
-                        ..Default::default()
+                    Mesh3d(meshes.add(LineList(gen_x_lines(20, line_len.0)))),
+                    // MeshMaterial3d(materials.add(StandardMaterial {
+                    //     base_color: Color::linear_rgb(200., 0., 0.),
+                    //     ..Default::default()
+                    // })),
+                    MeshMaterial3d(materials.add(LineMaterial {
+                        color: LinearRgba::RED,
                     })),
                     Transform::default(),
                     GridX,
@@ -173,12 +168,9 @@ fn listen_trigger(
                 .id();
             let y_id = commands
                 .spawn((
-                    Mesh3d(meshes.add(LineList {
-                        lines: gen_y_lines(20, line_len.0),
-                    })),
-                    MeshMaterial3d(materials.add(StandardMaterial {
-                        base_color: Color::linear_rgb(0., 200.0, 0.),
-                        ..Default::default()
+                    Mesh3d(meshes.add(LineList(gen_y_lines(20, line_len.0)))),
+                    MeshMaterial3d(materials.add(LineMaterial {
+                        color: LinearRgba::GREEN,
                     })),
                     Transform::default(),
                     GridY,
@@ -217,6 +209,7 @@ impl Plugin for GridPlugin {
     ) {
         app.init_state::<GridState>()
             .add_systems(Startup, startup)
+            .add_plugins(MaterialPlugin::<LineMaterial>::default())
             .init_resource::<LineLen>()
             .add_systems(
                 Update,
