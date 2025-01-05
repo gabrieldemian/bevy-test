@@ -2,8 +2,12 @@ use bevy::{
     input::mouse::{AccumulatedMouseMotion, MouseMotion},
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
+    window::{CursorGrabMode, PrimaryWindow},
 };
-use std::f32::consts::{FRAC_PI_2, PI};
+use std::{
+    borrow::Borrow,
+    f32::consts::{FRAC_PI_2, PI},
+};
 
 use crate::BodyKinematics;
 
@@ -80,27 +84,39 @@ fn mouse_motion(
     mut camera: Query<(&mut Transform, &CameraSensitivity), With<MyCamera>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
 ) {
-    let (mut transform, camera_sensitivity) = camera.single_mut();
     let delta = mouse_motion.delta;
     if delta == Vec2::ZERO {
         return;
     };
+    let (mut transform, camera_sensitivity) = camera.single_mut();
     let delta_yaw = -delta.x * camera_sensitivity.x;
     let delta_pitch = -delta.y * camera_sensitivity.y;
-
     let (yaw, pitch, roll) = transform.rotation.to_euler(EulerRot::YXZ);
     let yaw = yaw + delta_yaw;
-
+    // prevent gimbal lock
     const PITCH_LIMIT: f32 = FRAC_PI_2 - 0.01;
     let pitch = (pitch + delta_pitch).clamp(-PITCH_LIMIT, PITCH_LIMIT);
-
     transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+
+    // let delta_x = Quat::from_rotation_y(-delta.x * camera_sensitivity.x);
+    // transform.rotation *= delta_x;
+    // let delta_y = Quat::from_rotation_x(-delta.y * camera_sensitivity.y);
+    // transform.rotation *= delta_y;
 }
 
-fn startup(mut commands: Commands) {
-    let trans = Transform::from_xyz(0.0, 0.0, 12.0);
-    // let trans = Transform::from_xyz(3.0, 7., 7.0)
-    //     .looking_at(Vec3::new(0., 0., 0.), Vec3::Y);
+fn startup(
+    mut commands: Commands,
+    mut window: Single<&mut Window, With<PrimaryWindow>>,
+) {
+    // lock and center mouse
+    let w_size = window.size();
+    window.cursor_options.grab_mode = CursorGrabMode::Locked;
+    window.set_cursor_position(Some(w_size / 2.));
+
+    // let trans = Transform::from_xyz(0.0, 0.0, 3.0);
+    let trans = Transform::from_xyz(3.0, 7., 3.0)
+        .looking_at(Vec3::new(0., 0., 0.), Vec3::Y);
+
     commands.spawn((
         Camera3d::default(),
         Projection::from(PerspectiveProjection {
